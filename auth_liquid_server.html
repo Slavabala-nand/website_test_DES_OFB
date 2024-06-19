@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>FIDO2 Authentication</title>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script>
+        async function register() {
+            const username = document.getElementById('username').value;
+
+            const response = await axios.post('/register', { username });
+            const options = response.data;
+            const credential = await navigator.credentials.create({ publicKey: options });
+
+            await axios.post('/register/complete', credential);
+
+            alert('Registration successful');
+        }
+
+        async function authenticate() {
+            const username = document.getElementById('username').value;
+
+            const response = await axios.post('/authenticate', { username });
+            const options = response.data;
+            const assertion = await navigator.credentials.get({ publicKey: options });
+
+            await axios.post('/authenticate/complete', assertion);
+
+            alert('Authentication successful');
+        }
+
+        // Mock server implementation for demonstration
+        const users = {};
+        const sessions = {};
+
+        // Mock express.js `post` method
+        function post(url, handler) {
+            document.body.addEventListener('submit', async (e) => {
+                if (e.target.action.endsWith(url)) {
+                    e.preventDefault();
+                    const formData = new FormData(e.target);
+                    const body = Object.fromEntries(formData.entries());
+                    const req = { body, session: sessions[e.target.id] = sessions[e.target.id] || {} };
+                    const res = {
+                        json: (data) => e.target.dataset.response = JSON.stringify(data),
+                        status: (code) => ({ send: (message) => alert(`Error ${code}: ${message}`) })
+                    };
+                    await handler(req, res);
+                }
+            });
+        }
+
+        // Mock register endpoint
+        post('/register', async (req, res) => {
+            const username = req.body.username;
+            if (!username) {
+                return res.status(400).send('Username is required');
+            }
+
+            const user = { id: btoa(username), name: username, displayName: username };
+
+            const registrationOptions = { challenge: 'random-challenge', user };
+            req.session.challenge = registrationOptions.challenge;
+            req.session.username = username;
+
+            res.json(registrationOptions);
+        });
+
+        // Mock register complete endpoint
+        post('/register/complete', async (req, res) => {
+            const username = req.session.username;
+            if (!users[username]) {
+                users[username] = { id: username, keys: [] };
+            }
+            users[username].keys.push(req.body);
+
+            res.json({ success: true });
+        });
+
+        // Mock authenticate endpoint
+        post('/authenticate', async (req, res) => {
+            const username = req.body.username;
+            if (!username || !users[username]) {
+                return res.status(400).send('Invalid username');
+            }
+
+            const assertionOptions = { challenge: 'random-challenge' };
+            req.session.challenge = assertionOptions.challenge;
+            req.session.username = username;
+
+            res.json(assertionOptions);
+        });
+
+        // Mock authenticate complete endpoint
+        post('/authenticate/complete', async (req, res) => {
+            const username = req.session.username;
+            const user = users[username];
+            if (!user) {
+                return res.status(400).send('User not found');
+            }
+
+            // Mock verification
+            res.json({ success: true });
+        });
+    </script>
+</head>
+<body>
+    <h1>FIDO2 Authentication</h1>
+    <form id="registerForm" action="/register" method="POST">
+        <input type="text" id="username" name="username" placeholder="Enter username" required />
+        <button type="submit">Register</button>
+    </form>
+    <form id="authenticateForm" action="/authenticate" method="POST">
+        <input type="text" id="username" name="username" placeholder="Enter username" required />
+        <button type="submit">Authenticate</button>
+    </form>
+</body>
+</html>
