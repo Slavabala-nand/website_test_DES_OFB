@@ -3,52 +3,42 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Algorand Liquid Auth Client</title>
-    <script src="https://cdn.jsdelivr.net/npm/@algorandfoundation/algosdk@1.11.1/dist/browser/algosdk.min.js"></script>
-    <script>
-        async function initiateAuth() {
-            try {
-                const userId = document.getElementById('user_id').value;
-                if (!userId) {
-                    alert('Please enter a user ID.');
-                    return;
-                }
-
-                // Example: Initialize Algorand SDK and initiate the authentication process
-                const client = new algosdk.Algodv2('', 'https://testnet-algorand.api.purestake.io/ps2', '');
-                console.log('Algorand client initialized:', client);
-
-                // Simulate authentication request (this should be replaced with actual logic)
-                console.log('Initiating authentication for user:', userId);
-
-                // Mocked response
-                const authResponse = { success: true, message: 'Authentication successful' };
-
-                // Notify Flutter about the authentication result
-                if (window.Flutter) {
-                    window.Flutter.postMessage(JSON.stringify(authResponse));
-                }
-            } catch (error) {
-                console.error('Error initiating authentication:', error);
-                if (window.Flutter) {
-                    window.Flutter.postMessage(JSON.stringify({ success: false, message: error.message }));
-                }
-            }
-        }
-
-        function log(message) {
-            const logContainer = document.getElementById('log');
-            const logEntry = document.createElement('div');
-            logEntry.textContent = message;
-            logContainer.appendChild(logEntry);
-        }
-    </script>
+    <title>Algorand Authentication</title>
+    <script src="https://cdn.jsdelivr.net/npm/algosdk"></script>
 </head>
 <body>
-    <h1>Algorand Liquid Auth Client</h1>
-    <label for="user_id">User ID:</label>
-    <input type="text" id="user_id" name="user_id" placeholder="Enter your user ID"><br><br>
-    <button onclick="initiateAuth()">Initiate Authentication</button>
-    <div id="log"></div>
+    <button id="loginButton">Login with Algorand</button>
+    <script>
+        const algodClient = new algosdk.Algodv2('', 'https://testnet-algorand.api.purestake.io/ps2', '');
+
+        document.getElementById('loginButton').addEventListener('click', async () => {
+            try {
+                const account = algosdk.generateAccount();
+                const challenge = "Please sign this challenge to authenticate";
+                const signedChallenge = algosdk.signBytes(new TextEncoder().encode(challenge), account.sk);
+
+                const response = await fetch('/verify', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        address: account.addr,
+                        signedChallenge: Array.from(signedChallenge),
+                    }),
+                });
+
+                const result = await response.json();
+                if (result.verified) {
+                    window.postMessage(JSON.stringify({ verified: true }));
+                } else {
+                    window.postMessage(JSON.stringify({ verified: false }));
+                }
+            } catch (error) {
+                console.error('Error during authentication:', error);
+                window.postMessage(JSON.stringify({ verified: false, error: error.message }));
+            }
+        });
+    </script>
 </body>
 </html>
