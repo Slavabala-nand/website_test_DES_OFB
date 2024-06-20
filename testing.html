@@ -1,6 +1,50 @@
 <!DOCTYPE html>
-<html>
-    <body>
-        <h1>Hello, test</h1>
-    </body>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FIDO2 Authentication with Algorand</title>
+    <script src="https://cdn.jsdelivr.net/npm/algosdk"></script>
+</head>
+<body>
+    <button id="loginButton">Login with Algorand</button>
+    <script>
+        const algodClient = new algosdk.Algodv2('', 'https://testnet-algorand.api.purestake.io/ps2', '');
+
+        document.getElementById('loginButton').addEventListener('click', async () => {
+            try {
+                // Generate Algorand account
+                const account = algosdk.generateAccount();
+
+                // Dummy challenge value
+                const challenge = "Please sign this challenge to authenticate";
+
+                // Sign the challenge with the Algorand private key
+                const signedChallenge = algosdk.signBytes(new TextEncoder().encode(challenge), account.sk);
+
+                // Simulated backend verification
+                const isVerified = verifySignedChallenge(challenge, signedChallenge, account.addr);
+
+                if (isVerified) {
+                    window.postMessage(JSON.stringify({ verified: true }));
+                } else {
+                    window.postMessage(JSON.stringify({ verified: false }));
+                }
+            } catch (error) {
+                console.error('Error during authentication:', error);
+                window.postMessage(JSON.stringify({ verified: false, error: error.message }));
+            }
+        });
+
+        // Simulated backend verification function
+        function verifySignedChallenge(challenge, signedChallenge, address) {
+            try {
+                return algosdk.verifyBytes(new TextEncoder().encode(challenge), signedChallenge, address);
+            } catch (error) {
+                console.error('Verification error:', error);
+                return false;
+            }
+        }
+    </script>
+</body>
 </html>
